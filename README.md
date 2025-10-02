@@ -26,9 +26,16 @@ When uploading to arXiv, you need only include `main_extracted.tex` and the fina
 Without doing anything with python or the command line, you have some flexability. You may edit the `standalone_template.tex` in the repository to include useful packages, standardize formatting, insert a uniform watermark, etc.
 
 The script accepts several additional inputs, which you can also view by running python tex_env_extractor.py -h.
+
 --output : the name of the new tex file after all the environments are replaced by includegraphics (main_extracted.tex in the example above).
+
 --standalone_template : the name of a tex file that includes the line '\envhere' somewhere, which is used to make all the extracted files (standalone_template.tex in the example above).
---environments : a sequence of tex environments you would like to extract and replace. For example, python main.tex --environments picture tikzpicture tikzcd 
+
+--environments : a sequence of tex environments you would like to extract and replace. For example, 
+`python main.tex --environments picture tikzpicture tikzcd`
+
 will create a standalone file for each picture, tikzpicture, and tikzcd block (the created files will indicate which environment is in each in their names, for example you could see some extracted_picture_##.tex ).
+
 --tex_command : you can provide the string for your latex compiler, and the program will automatically call it on each of the extracted_tikzpicture_##.tex files. Specifically, it will try to run 'tex_command extracted_environment_##.tex' (the filename will match the created files for the environment). Note this will not be used on the final new tex file (eg main_extracted.tex).
+
 --extracted_path : For large projects, there may be many extracted environments. You can change where they are located, and what prefix is used for the filenames, by setting this value. By default, it uses "extracted_". Setting it to "figures/extracted_" will create all the standalone files in the figures folder. Note that you may need to create the figures folder, or else the program will fail.
