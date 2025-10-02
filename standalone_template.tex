@@ -1,0 +1,162 @@
+\documentclass[12pt]{standalone} %article [12] %Computer Modern font, 11pt
+\usepackage[
+  letterpaper, 
+  headheight=15pt,
+  margin=1in, %minimum is 1in; can decrease to that if required.
+  headsep=15pt, % separation between header rule and text %1pt = 0.014in (minus a bit)
+  top=0.8in,
+  bottom=0.8in
+]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\usepackage{fancyhdr}
+\usepackage{microtype}
+
+\newcommand{\blue}[1]{{\color{blue} #1}}
+
+\usepackage{amsthm, amssymb, amsmath, enumitem}
+\usepackage{tikz, tikz-cd}
+\usetikzlibrary{decorations.markings} %for adding an arrow along the outer circle, to indicate the order via drawing.
+
+
+\newcommand{\cS}[1]{{\noindent\textsf{\color{purple}$\blacksquare$~#1~$\blacksquare$}}}
+\newcommand{\hide}[1]{}
+
+
+\newtheorem{lem}{Lemma}
+\newtheorem{theorem}[lem]{Theorem}
+\newtheorem{proposition}[lem]{Proposition}
+\newtheorem{conjecture}[lem]{Conjecture}
+\newtheorem{corollary}[lem]{Corollary}
+\newtheorem{lemma}[lem]{Lemma}
+\newtheorem{claim}[lem]{Claim}
+
+
+\theoremstyle{definition}
+\newtheorem{remark}[lem]{Remark}
+\newtheorem{question}[lem]{Question}
+\newtheorem{example}[lem]{Example}
+\newtheorem{definition}[lem]{Definition}
+\newtheorem{problem}[lem]{Problem}
+%\newtheorem{restr}[theorem]{Restriction}
+\newtheorem{observation}[lem]{Observation}
+%\numberwithin{equation}{section}
+
+
+\def\AA{{\mathbb A}}
+\def\ZZ{{\mathbb Z}}
+\def\RR{{\mathbb R}}
+\def\QQ{{\mathbb Q}}
+\def\NN{{\mathbb N}}
+\def\CC{{\mathbb C}}
+\def\KK{{\mathbf K}}
+\def\PP{{\mathbb P}}
+
+
+\def\O{{\mathcal{O}}}
+
+
+\def\ww{{\mathbf{w}}}
+\def\wind{{\operatorname{wind}}}
+
+
+\def\GL{{\operatorname{GL}}}
+\def\In{{\operatorname{In}}}
+\def\Out{{\operatorname{Out}}}
+
+
+\newcommand\Pf{\operatorname{Pf}}
+\newcommand\sgn{\operatorname{sgn}}
+
+
+\def\tr{{\operatorname{tr}}}
+
+
+\newcommand{\statement}[1]{\medskip\noindent
+  \textcolor{black}{\textbf{#1}}\space
+}
+
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{
+\textsc{\soptitle}\hfill
+\textbf{\yourname}\\ \vspace{-1em}}
+%\school\hfill}%\yourintent}
+%\fancyfoot[C]{}%{\footnotesize\thepage}
+%\pagestyle{empty}
+
+\let\oldcenter\center
+\let\oldendcenter\endcenter
+\renewenvironment{center}{\setlength\topsep{0pt}\oldcenter}{\oldendcenter}
+
+
+\newcommand{\wordcount}{
+\begin{center}
+\rule{0.75\textwidth}{.4pt}\\
+{\footnotesize A statement of \numwords \ words}
+\end{center}
+}
+
+
+
+
+
+
+\newcommand{\red}[1]{{\color{red} #1}}
+%\newcommand{\blue}[1]{{\color{blue} #1}}
+\newcommand{\green}[1]{{\color{green} #1}}
+%\newcommand{\lightgray}[1]{\color{lightgray}{#1}\color{black}}
+\newcommand{\yellow}[1]{{\color{yellow} #1}}
+
+
+\newif\ifcomments
+
+
+\newcommand{\comment}[1]{}
+\newcommand{\todo}[1]{\ifcomments\textcolor{red}{TODO: #1}\fi}
+
+
+%%%%%%%%%%%%%%%%%%%%% Edit this section %%%%%%%%%%%%%%%%%%%%
+
+
+\commentstrue
+
+
+\newcommand{\soptitle}{Research Statement}
+\newcommand{\yourname}{Scott Neville}
+%\newcommand{\yourintent}{Applicant for a PhD in The Thing}
+%\newcommand{\school}{The University}
+\newcommand{\advisorfirstname}{Sergey}
+\newcommand{\advisorlastname}{Fomin}
+\newcommand{\advisorfull}{Prof. \advisorfirstname \ \advisorlastname}
+\newcommand{\advisor}{Prof. \advisorlastname}
+\newcommand{\numwords}{\todo{number}}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\usepackage[
+  breaklinks,
+  pdftitle={\yourname - \soptitle},
+  pdfauthor={\yourname},
+  unicode,
+  colorlinks,
+  urlcolor={blue!80!black}
+]{hyperref}
+
+\usepackage{setspace}
+\setlength{\baselineskip}{12.6pt} % in text mode
+\setlength{\normalbaselineskip}{12.6pt} % in math mode
+
+%\pagestyle{empty} 
+%
+\begin{document}
+\thispagestyle{empty}
+
+\envhere
+
+\end{document}
+
