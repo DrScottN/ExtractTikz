@@ -4,6 +4,13 @@ These scripts will automate extracting environments from a tex file, compiling t
 
 The primary use case is for removing tikzpicture and picture environments, which do not compile to HTML on the arXiv.
 
+
+> [!WARNING]  
+> This project is still under development.
+
+> [!NOTE]  
+> This program currently uses TexSoup (which you will need to seperately install) to work. This is subject to change.
+
 # Notes on creating image files
 Compiling standalone to an image file: this is not always trivial. Include graphics will include pdfs, but by default these are recompiled instead of included as images.
 Guides:
