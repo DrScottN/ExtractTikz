@@ -1,60 +1,211 @@
-from TexSoup import TexSoup
 import argparse #for parser cli
 import subprocess #to compile standalone files.
+import re #for removing comments
 
 #create parser for cli
-parser = argparse.ArgumentParser(description=r'Extracts tex environments from a tex file into a standalone template, and creates a new .tex file that points to the seperated environments.')
-parser.add_argument("input_filename", help=r"The .tex file that you wish to remove environments from.")#, epilog="input_filename will not be changed by this program.")
-parser.add_argument("--output", help=r"The .tex file that the result should write to. Defaults to input_filename[:-4] + `_extracted.tex`")
+parser = argparse.ArgumentParser(description='Extracts tex environments from a tex file into a standalone template, and creates a new .tex file that points to the seperated environments.')
+parser.add_argument("input_filename", help="The .tex file that you wish to remove environments from.")#, epilog="input_filename will not be changed by this program.")
+parser.add_argument("--output", help="The .tex file that the result should write to. Defaults to input_filename[:-4] + `_extracted.tex`")
 parser.add_argument("--standalone_template", help=r"The .tex file that you wish the environments to use as a template. Should contain a `\envhere` somewhere inside.", default="standalone_template.tex")#, epilog="standalone_template will not be changed by this program.", type=str)
-parser.add_argument("--environments", help=r"any number of latex environment names which should be extracted from input_filename.", default=["tikzpicture"], nargs='*')
-parser.add_argument("--tex_command", help=r"command used for building standalone file. Will not compile if omitted.", default=None, type=str)
-parser.add_argument("--extracted_path", help=r"path to save new standalone files to. Defaults to current directory, files will have the prefix extracted_.", default="extracted_")
+parser.add_argument("--environments", help="any number of latex environment names which should be extracted from input_filename.", default=["tikzpicture"], nargs='*')
+parser.add_argument("--tex_command", help="command used for building standalone file (such as 'pdflatex'). Will not compile the images for you if omitted.", default=None, type=str)
+parser.add_argument("--tex_args", help="any flags (such as '-shell-escape') for the tex_command.", default=[], nargs='*')
+parser.add_argument("--extracted_path", help="path to save new standalone files to. Defaults to current directory, files will have the prefix extracted_.", default="extracted_")
 
 #helper functions
 
-def create_standalone(env_node, standalone_file, output_file):
-    """Place the given latex node into a given standalone_file, and save it to output_file."""
-    standalone_soup = TexSoup(standalone_file)
-    standalone_soup.envhere.replace_with(env_node) #Change the 'envhere' on this line to change the template placeholder command '\envhere'.
-    output_file.write(str(standalone_soup))
+def insert_env_in_file(file_lines, env, replace_string):
+    """Replaces each instance of replace_string in the list of strings file_lines with the list of strings env."""
+    output_lines = []
+    for line in file_lines:
+        if replace_string in line:
+            output_lines.append(line[:line.index(replace_string)])
+            output_lines += env
+            output_lines.append(line[line.index(replace_string)+len(replace_string):])
+        else:
+            output_lines.append(line)
+    return output_lines
+
+
+def create_standalone(env_lines, standalone_file, output_file):
+    """Place the given latex lines into a given standalone_file, and save it to output_file."""
+    standalone_lines = list(standalone_file)
+    output_lines=insert_env_in_file(standalone_lines, env_lines, replace_string=r"\envhere") #Change the 'envhere' on this line to change the template placeholder command '\envhere'.
+    output_file.writelines(output_lines)
     return
 
-def environment_standalone_path(extracted_path, env_number, env_node, extension=".tex"):
+def environment_standalone_path(extracted_path, env_number, env_name, env_lines, extension=".tex"):
     """Create path for a given extracted environment."""
-    return extracted_path+str(env_node.name)+"_"+str(env_number)+extension #simplest version will not be in a directory, less permissions. Could incorporate node properties.
+    return extracted_path+env_name+"_"+str(env_number)+extension #simplest version will not be in a directory, less permissions. Could incorporate lines properties.
 
-def compile_standalone(tex_command, filename):
+def compile_standalone(tex_command, filename, tex_arguments=[]):
     """Run tex_command on filename."""
-    subprocess.run([tex_command, filename], check=True) #, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    
+    try:
+        package = [tex_command]
+        for t in tex_arguments:
+            package.append(t)
+        package.append(filename)
+        print("Running the command: ", package)
+        subprocess.run(package, check=True) #, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as error:
+        print(error)
+
+def remove_comments(latex_string):
+    """Remove commented out suffix from string."""
+    regex_for_unescaped_comment = r"[^\\]%" #matches unescaped %'s
+    comment_match = re.search(regex_for_unescaped_comment, latex_string)
+    if comment_match:
+        return latex_string[:comment_match.start()]
+    else:
+        return latex_string
+
+assert remove_comments(r"hi\% bye % testing123456789") == r"hi\% bye"
+
+def extract_environments(latex_file, environments):
+    regex_for_begin_env = r"\\begin\{(" + r"|".join([re.escape(env) for env in environments]) + r")\}"
+    latex_lines = list(latex_file)
+    line_count = len(latex_lines)
+    assert line_count > 0, "Empty input file."
+    #initialize loop
+    extracted_envs = []
+    in_env = False #state; what environment (of our list) are we currently in?
+    line = latex_lines[0]
+    commentless_line = remove_comments(line)
+    i=0 #state; what line number are we reading
+    while True:
+        if in_env:
+            regex_for_end_env = r"\\end\{" + re.escape(in_env) + r"\}"
+            match = re.search(regex_for_end_env, commentless_line)
+            if match: #end of environment found.
+                inside_line=line[:match.end()]
+                env_lines.append(inside_line)
+                extracted_envs.append(env_lines) #found complete environment.
+                #haven't parsed the rest of this line; restart loop with it.
+                line = line[match.end():]
+                commentless_line = remove_comments(line)
+                in_env=False
+                continue
+            env_lines.append(line)
+        else:
+            match = re.search(regex_for_begin_env, commentless_line) #finds the first substring that matches
+            if match: #beginning of environment found.
+                #strip prefix
+                line = line[match.start():]
+                commentless_line = commentless_line[match.start():]
+                #change loop mode
+                in_env=match.group(1) #store which environment we're in
+                env_lines=[]
+                continue
+        i+=1
+        if i==line_count:
+            break
+        line = latex_lines[i]
+        commentless_line = remove_comments(line)
+    return extracted_envs
+
+assert extract_environments(iter([
+    "\\begin{tikzpicture}\n",
+    "\\draw (0,0) -- (1,1);\n",
+    "\\end{tikzpicture}\n",
+    ]), ["tikzpicture"]) == [
+                            ["\\begin{tikzpicture}\n", "\\draw (0,0) -- (1,1);\n", "\\end{tikzpicture}"]
+                            ]
+
+assert extract_environments(iter([
+    "Text before\n",
+    "\\begin{align*}\n",
+    "x = y\n",
+    "\\end{align*}\n",
+    "\\begin{tikzpicture}\n",
+    "\\end{tikzpicture}\n",
+    "Afterwards\n",
+    ]), ["align*", "tikzpicture"]) == [
+                                        ["\\begin{align*}\n", "x = y\n", "\\end{align*}"],
+                                        ["\\begin{tikzpicture}\n", "\\end{tikzpicture}"]
+                                    ]
+
+assert extract_environments(iter([
+    "\\begin{tikzpicture} % inline comment\n",
+    "\\path (0,0);\n",
+    "\\end{tikzpicture} % trailing comment \\begin{tikzpicture} \\end{tikzpicture}\n",
+    ]), ["tikzpicture"]) == [
+                            ["\\begin{tikzpicture} % inline comment\n", "\\path (0,0);\n", "\\end{tikzpicture}"]
+                            ]
+
+def replace_environments(latex_file, environments, extracted_path):
+    regex_for_begin_env = r"\\begin\{(" + r"|".join([re.escape(env) for env in environments]) + r")\}"
+    latex_lines = list(latex_file)
+    line_count = len(latex_lines)
+    assert line_count > 0, "Empty input file."
+    #initialize loop
+    extracted_envs = []
+    output_lines =[]
+    in_env = False #state; what environment (of our list) are we currently in?
+    line = latex_lines[0]
+    commentless_line = remove_comments(line)
+    i=0 #state; what line number are we reading
+    while True:
+        if in_env:
+            regex_for_end_env = r"\\end\{" + re.escape(in_env) + r"\}"
+            match = re.search(regex_for_end_env, commentless_line)
+            if match: #end of environment found.
+                inside_line=line[:match.end()]
+                env_lines.append(inside_line)
+                output_lines.append(r"\includegraphics{" + 
+                    environment_standalone_path(extracted_path, len(extracted_envs), in_env, env_lines, extension="")+ "}")
+                extracted_envs.append(env_lines)
+
+                #haven't parsed the rest of this line; restart loop with it.
+                line = line[match.end():]
+                commentless_line = remove_comments(line)
+                in_env=False
+                continue
+            env_lines.append(line)
+        else:
+            match = re.search(regex_for_begin_env, commentless_line) #finds the first substring that matches
+            if match: #beginning of environment found.
+                #strip prefix
+                prefix = line[:match.start()]
+                output_lines.append(prefix)
+                line = line[match.start():]
+                commentless_line = commentless_line[match.start():]
+                #change loop mode
+                in_env=match.group(1) #store which environment we're in
+                env_lines=[]
+                continue
+            output_lines.append(line) #otherwise write to output
+        i+=1
+        if i==line_count:
+            break
+        line = latex_lines[i]
+        commentless_line = remove_comments(line)
+    return extracted_envs, output_lines
 
 def main(input_filename, output_filename, standalone_template_filename, environments, tex_compiler_command, extracted_path):
-    with open(input_filename) as latex_file:
-        soup = TexSoup(latex_file)
-        extracted_envs = list(soup.find_all(environments))
+    with open(input_filename, 'r') as input_file:
+        extracted_envs, output_lines = replace_environments(input_file, environments, extracted_path)
+
+    with open(output_filename, 'w') as output_file:
+        output_file.writelines(output_lines)
+    print("created new file " + str(output_filename) + " with includegraphics.")
 
     for env_number in range(len(extracted_envs)):
-        node = extracted_envs[env_number]
-        with open(environment_standalone_path(extracted_path, env_number, node), 'w') as out_env_file, open(standalone_template_filename, 'r') as standalone_file:
-            create_standalone(node, standalone_file, out_env_file)
+        env_lines = extracted_envs[env_number]
+        env_name = env_lines[0][7:]
+        env_name = env_name[:env_name.index("}")] #extract contents of \begin{*}
+        with open(environment_standalone_path(extracted_path, env_number, env_name, env_lines), 'w') as out_env_file, open(standalone_template_filename, 'r') as standalone_file:
+            create_standalone(env_lines, standalone_file, out_env_file)
     print("created standalone files for " + str(len(extracted_envs)) + " environments.")
     
     if not tex_compiler_command:
-        print("no tex compiler provided. Standalone files ")
+        print("no tex compiler provided. Standalone files must be compiled separately.")
     else:
         for env_number in range(len(extracted_envs)):
-            compile_standalone(tex_compiler_command, environment_standalone_path(extracted_path, env_number, node))
+            env_lines = extracted_envs[env_number]
+            env_name = env_lines[0][7:]
+            env_name = env_name[:env_name.index("}")] #extract contents of \begin{*}
+            compile_standalone(tex_compiler_command, environment_standalone_path(extracted_path, env_number, env_name, env_lines))
         print("compiled the standalone environments.")
-
-    for env_number in range(len(extracted_envs)):
-        node = extracted_envs[env_number]
-        paren = node.parent
-        #the following operation updates soup, creating our new output file.
-        paren.replace(node, r"\includegraphics{" + environment_standalone_path(extracted_path, env_number, node, extension="")+ "}")
-    with open(output_filename, 'w') as output_file:
-        output_file.write(str(soup))
-    print("created new file " + str(output_filename) + " with generated environments.")
     
 if __name__=='__main__':
     args = parser.parse_args()
