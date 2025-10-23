@@ -8,9 +8,6 @@ The primary use case is for removing tikzpicture and picture environments, which
 > [!WARNING]  
 > This project is still under development.
 
-> [!NOTE]  
-> This program currently uses TexSoup (which you will need to seperately install) to work. This is subject to change.
-
 # Notes on creating image files
 Compiling standalone to an image file: this is not always trivial. Include graphics will include pdfs, but by default these are recompiled instead of included as images.
 Guides:
@@ -43,6 +40,11 @@ The script accepts several additional inputs, which you can also view by running
 
 will create a standalone file for each picture, tikzpicture, and tikzcd block (the created files will indicate which environment is in each in their names, for example you could see some extracted_picture_##.tex ).
 
+--extracted_path : For large projects, there may be many extracted environments. You can change where they are located, and what prefix is used for the filenames, by setting this value. By default, it uses "extracted_". Setting it to "figures/extracted_" will create all the standalone files in the figures folder. Note that you may need to create the figures folder, or else the program will fail.
+
+> [!WARNING]  
+> Putting anything in --tex_command will attempt to run the command provided for each image. Do not run with elevated permissions, and check your command carefully. The command will be run for each extracted environment, skipping any errors/bad exit codes.
+
 --tex_command : you can provide the string for your latex compiler, and the program will automatically call it on each of the extracted_tikzpicture_##.tex files. Specifically, it will try to run 'tex_command extracted_environment_##.tex' (the filename will match the created files for the environment). Note this will not be used on the final new tex file (eg main_extracted.tex).
 
---extracted_path : For large projects, there may be many extracted environments. You can change where they are located, and what prefix is used for the filenames, by setting this value. By default, it uses "extracted_". Setting it to "figures/extracted_" will create all the standalone files in the figures folder. Note that you may need to create the figures folder, or else the program will fail.
+--tex_args : for use with --tex_command. This takes a list of arguments/flags that you would like passed to --tex_command. To get .png files from pdflatex, one must pass `-shell-escape` here.
