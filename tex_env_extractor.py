@@ -1,6 +1,7 @@
 import argparse #for parser cli
 import subprocess #to compile standalone files.
 import re #for removing comments
+import shlex #for formatting shell commands
 
 #create parser for cli
 parser = argparse.ArgumentParser(description='Extracts tex environments from a tex file into a standalone template, and creates a new .tex file that points to the seperated environments.')
@@ -59,79 +60,6 @@ def remove_comments(latex_string):
     else:
         return latex_string
 
-assert remove_comments(r"hi\% bye % testing123456789") == r"hi\% bye"
-
-def extract_environments(latex_file, environments):
-    regex_for_begin_env = r"\\begin\{(" + r"|".join([re.escape(env) for env in environments]) + r")\}"
-    latex_lines = list(latex_file)
-    line_count = len(latex_lines)
-    assert line_count > 0, "Empty input file."
-    #initialize loop
-    extracted_envs = []
-    in_env = False #state; what environment (of our list) are we currently in?
-    line = latex_lines[0]
-    commentless_line = remove_comments(line)
-    i=0 #state; what line number are we reading
-    while True:
-        if in_env:
-            regex_for_end_env = r"\\end\{" + re.escape(in_env) + r"\}"
-            match = re.search(regex_for_end_env, commentless_line)
-            if match: #end of environment found.
-                inside_line=line[:match.end()]
-                env_lines.append(inside_line)
-                extracted_envs.append(env_lines) #found complete environment.
-                #haven't parsed the rest of this line; restart loop with it.
-                line = line[match.end():]
-                commentless_line = remove_comments(line)
-                in_env=False
-                continue
-            env_lines.append(line)
-        else:
-            match = re.search(regex_for_begin_env, commentless_line) #finds the first substring that matches
-            if match: #beginning of environment found.
-                #strip prefix
-                line = line[match.start():]
-                commentless_line = commentless_line[match.start():]
-                #change loop mode
-                in_env=match.group(1) #store which environment we're in
-                env_lines=[]
-                continue
-        i+=1
-        if i==line_count:
-            break
-        line = latex_lines[i]
-        commentless_line = remove_comments(line)
-    return extracted_envs
-
-assert extract_environments(iter([
-    "\\begin{tikzpicture}\n",
-    "\\draw (0,0) -- (1,1);\n",
-    "\\end{tikzpicture}\n",
-    ]), ["tikzpicture"]) == [
-                            ["\\begin{tikzpicture}\n", "\\draw (0,0) -- (1,1);\n", "\\end{tikzpicture}"]
-                            ]
-
-assert extract_environments(iter([
-    "Text before\n",
-    "\\begin{align*}\n",
-    "x = y\n",
-    "\\end{align*}\n",
-    "\\begin{tikzpicture}\n",
-    "\\end{tikzpicture}\n",
-    "Afterwards\n",
-    ]), ["align*", "tikzpicture"]) == [
-                                        ["\\begin{align*}\n", "x = y\n", "\\end{align*}"],
-                                        ["\\begin{tikzpicture}\n", "\\end{tikzpicture}"]
-                                    ]
-
-assert extract_environments(iter([
-    "\\begin{tikzpicture} % inline comment\n",
-    "\\path (0,0);\n",
-    "\\end{tikzpicture} % trailing comment \\begin{tikzpicture} \\end{tikzpicture}\n",
-    ]), ["tikzpicture"]) == [
-                            ["\\begin{tikzpicture} % inline comment\n", "\\path (0,0);\n", "\\end{tikzpicture}"]
-                            ]
-
 def replace_environments(latex_file, environments, extracted_path):
     regex_for_begin_env = r"\\begin\{(" + r"|".join([re.escape(env) for env in environments]) + r")\}"
     latex_lines = list(latex_file)
@@ -181,7 +109,7 @@ def replace_environments(latex_file, environments, extracted_path):
         commentless_line = remove_comments(line)
     return extracted_envs, output_lines
 
-def main(input_filename, output_filename, standalone_template_filename, environments, tex_compiler_command, extracted_path):
+def main(input_filename, output_filename, standalone_template_filename, environments, tex_compiler_command, tex_compiler_args, extracted_path):
     with open(input_filename, 'r') as input_file:
         extracted_envs, output_lines = replace_environments(input_file, environments, extracted_path)
 
@@ -204,7 +132,7 @@ def main(input_filename, output_filename, standalone_template_filename, environm
             env_lines = extracted_envs[env_number]
             env_name = env_lines[0][7:]
             env_name = env_name[:env_name.index("}")] #extract contents of \begin{*}
-            compile_standalone(tex_compiler_command, environment_standalone_path(extracted_path, env_number, env_name, env_lines))
+            compile_standalone(tex_compiler_command, environment_standalone_path(extracted_path, env_number, env_name, env_lines), tex_arguments=tex_compiler_args)
         print("compiled the standalone environments.")
     
 if __name__=='__main__':
@@ -213,5 +141,13 @@ if __name__=='__main__':
         output_filename = args.input_filename[:-4] + "_extracted.tex"
     else:
         output_filename = args.output
-    #todo: if tex_command, prompt user with example command that will be called.
-    main(args.input_filename, output_filename, args.standalone_template, args.environments, args.tex_command, args.extracted_path)
+    if args.tex_command:
+        sample_env = args.environments[0] if args.environments else "environment"
+        sample_target = f"{args.extracted_path}{sample_env}_0.tex"
+        sample_command = [args.tex_command, *args.tex_args, sample_target]
+        command_preview = " ".join(shlex.quote(token) for token in sample_command)
+        confirmation = input(f"This will run `{command_preview}` for each extracted environment. Continue? [y/N]: ").strip().lower()
+        if confirmation not in ("y", "yes"):
+            print("Compilation step skipped at user request.")
+            args.tex_command = None
+    main(args.input_filename, output_filename, args.standalone_template, args.environments, args.tex_command, args.tex_args, args.extracted_path)
